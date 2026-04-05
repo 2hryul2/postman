@@ -7,7 +7,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration, sleep};
 
-const SEND_RECV_TIMEOUT_SECS: u64 = 120;
+const SEND_RECV_TIMEOUT_SECS: u64 = 10;
 const MAX_SKIP_LINES: usize = 500;
 const STDERR_BUFFER_SIZE: usize = 50;
 

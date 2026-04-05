@@ -17,9 +17,25 @@ impl StdioTransport {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        let mut cmd = Command::new(command);
-        cmd.args(args)
-            .stdin(std::process::Stdio::piped())
+        // On Windows, use cmd.exe /C to resolve .cmd/.bat files (e.g. npx → npx.cmd)
+        // and inherit the full system PATH
+        #[cfg(target_os = "windows")]
+        let mut cmd = {
+            let mut full_args = vec!["/C".to_string(), command.to_string()];
+            full_args.extend(args.iter().cloned());
+            let mut c = Command::new("cmd.exe");
+            c.args(&full_args);
+            c
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        let mut cmd = {
+            let mut c = Command::new(command);
+            c.args(args);
+            c
+        };
+
+        cmd.stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 

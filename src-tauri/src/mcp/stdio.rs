@@ -7,6 +7,8 @@ use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration, sleep};
 
+// Debug logging to %AppData%/com.hiveapi.app/mcp_debug.log
+#[allow(dead_code)]
 fn log_debug(msg: &str) {
     use std::io::Write;
     let log_path = std::env::var("APPDATA")
@@ -18,7 +20,7 @@ fn log_debug(msg: &str) {
     }
 }
 
-const SEND_RECV_TIMEOUT_SECS: u64 = 10;
+const SEND_RECV_TIMEOUT_SECS: u64 = 60;
 const MAX_SKIP_LINES: usize = 500;
 const STDERR_BUFFER_SIZE: usize = 50;
 
@@ -36,7 +38,6 @@ impl StdioTransport {
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
         let (exe, final_args) = resolve_program(command, args)?;
-        log_debug(&format!("SPAWN: exe='{}' args={:?}", exe, final_args));
 
         let mut cmd = Command::new(&exe);
         cmd.args(&final_args)
@@ -48,8 +49,13 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        // No creation flags — let the console window appear for debugging.
-        // TODO: hide window once stdio communication is confirmed working.
+        // CREATE_NO_WINDOW: safe because resolve_program() ensures we run
+        // a real .exe (node.exe/python.exe), never a .cmd batch file.
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
 
         let mut child = cmd.spawn().map_err(|e| {
             AppError::Custom(format!(
@@ -116,36 +122,26 @@ impl StdioTransport {
     pub async fn send(&self, request: &JsonRpcRequest) -> Result<(), AppError> {
         let mut data = serde_json::to_string(request)?;
         data.push('\n');
-        log_debug(&format!("SEND: {} bytes, method={}", data.len(), request.method));
         let mut stdin = self.stdin.lock().await;
-        log_debug("SEND: stdin lock acquired");
         stdin.write_all(data.as_bytes()).await.map_err(|e| {
-            log_debug(&format!("SEND ERROR: write failed: {}", e));
             AppError::Custom(format!("Write to MCP stdin failed: {}", e))
         })?;
         stdin.flush().await.map_err(|e| {
-            log_debug(&format!("SEND ERROR: flush failed: {}", e));
             AppError::Custom(format!("Flush MCP stdin failed: {}", e))
         })?;
-        log_debug("SEND: write+flush OK");
         Ok(())
     }
 
     /// Read one JSON-RPC response. NO timeout here — caller must wrap with timeout.
     pub async fn receive(&self) -> Result<JsonRpcResponse, AppError> {
-        log_debug("RECV: waiting for reader lock");
         let mut reader = self.reader.lock().await;
-        log_debug("RECV: reader lock acquired, reading...");
         let mut skipped = 0usize;
 
         loop {
             let mut line = String::new();
-            log_debug("RECV: calling read_line...");
             let n = reader.read_line(&mut line).await.map_err(|e| {
-                log_debug(&format!("RECV ERROR: {}", e));
                 AppError::Custom(format!("Read MCP stdout failed: {}", e))
             })?;
-            log_debug(&format!("RECV: got {} bytes: '{}'", n, line.trim_end()));
 
             if n == 0 {
                 let stderr = self.get_stderr().await;

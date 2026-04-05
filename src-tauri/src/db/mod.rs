@@ -1,0 +1,22 @@
+pub mod collections;
+pub mod environments;
+pub mod history;
+pub mod requests;
+pub mod schema;
+
+use rusqlite::Connection;
+use std::sync::Mutex;
+
+pub struct Database {
+    pub conn: Mutex<Connection>,
+}
+
+impl Database {
+    pub fn new(db_path: &str) -> Result<Self, rusqlite::Error> {
+        let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+}

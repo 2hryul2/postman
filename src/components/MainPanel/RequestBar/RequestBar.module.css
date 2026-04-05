@@ -1,0 +1,61 @@
+.requestBar {
+  display: flex;
+  align-items: center;
+  height: var(--request-bar-height);
+  padding: 10px 12px;
+  gap: 6px;
+  border-bottom: 0.5px solid var(--border-weak);
+}
+
+.methodSelect {
+  height: 32px;
+  padding: 0 8px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  min-width: 80px;
+  text-align: center;
+}
+
+.urlInput {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-primary);
+  outline: none;
+}
+
+.urlInput:focus {
+  border-color: var(--info-text);
+}
+
+.sendBtn {
+  height: 32px;
+  min-width: 60px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--info-text);
+  color: white;
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.sendBtn:hover {
+  opacity: 0.9;
+}
+
+.sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

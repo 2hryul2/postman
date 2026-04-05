@@ -1,0 +1,110 @@
+:root {
+  /* Background */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f4;
+  --bg-tertiary: #eeede8;
+
+  /* Text */
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6a64;
+  --text-tertiary: #9b9a94;
+
+  /* Borders */
+  --border-sub: rgba(0, 0, 0, 0.12);
+  --border-weak: rgba(0, 0, 0, 0.08);
+
+  /* Semantic */
+  --info-bg: #e6f1fb;
+  --info-text: #185fa5;
+  --success-bg: #eaf3de;
+  --success-text: #3b6d11;
+  --danger-bg: #fcebeb;
+  --danger-text: #a32d2d;
+  --warn-bg: #faeeda;
+  --warn-text: #854f0b;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Fonts */
+  --font-sans: "Pretendard", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+
+  /* Layout Dimensions */
+  --titlebar-height: 38px;
+  --sidebar-width: 220px;
+  --sidebar-min-width: 160px;
+  --sidebar-max-width: 320px;
+  --request-bar-height: 52px;
+  --request-tabs-height: 36px;
+  --response-header-height: 34px;
+  --env-bar-height: 30px;
+
+  /* Method Badge Colors */
+  --method-get-bg: #e1f5ee;
+  --method-get-text: #0f6e56;
+  --method-post-bg: #e6f1fb;
+  --method-post-text: #185fa5;
+  --method-put-bg: #faeeda;
+  --method-put-text: #854f0b;
+  --method-delete-bg: #fcebeb;
+  --method-delete-text: #a32d2d;
+  --method-patch-bg: #fbeaf0;
+  --method-patch-text: #993556;
+
+  /* Status Pill Colors */
+  --status-2xx-bg: #eaf3de;
+  --status-2xx-text: #3b6d11;
+  --status-4xx-bg: #fcebeb;
+  --status-4xx-text: #a32d2d;
+  --status-5xx-bg: #faeeda;
+  --status-5xx-text: #854f0b;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-sub);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}

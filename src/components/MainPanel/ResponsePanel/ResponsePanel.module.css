@@ -1,0 +1,60 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 120px;
+  border-top: 0.5px solid var(--border-sub);
+}
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--response-header-height);
+  padding: 0 12px;
+  border-bottom: 0.5px solid var(--border-weak);
+}
+
+.statusPill {
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  color: var(--danger-text);
+  font-size: 13px;
+  padding: 12px;
+}

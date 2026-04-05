@@ -20,26 +20,27 @@ impl StdioTransport {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        // On Windows: use "cmd.exe /S /C "command args..."" to properly handle
-        // PATH resolution and spaces. cmd.exe finds npx.cmd via PATH automatically.
-        #[cfg(target_os = "windows")]
-        let mut cmd = {
-            // Build full command string for cmd.exe /S /C "..."
-            let mut parts = vec![command.to_string()];
-            parts.extend(args.iter().cloned());
-            let full_cmd = parts.join(" ");
+        let mut cmd;
 
-            let mut c = Command::new("cmd.exe");
-            c.args(["/S", "/C", &full_cmd]);
-            c
-        };
+        #[cfg(target_os = "windows")]
+        {
+            // On Windows: find the actual executable to bypass .cmd/.bat issues.
+            // For "npx", "npm", "node" etc., find node.exe and run via it.
+            let (exe, mut final_args) = resolve_windows_command(command, args);
+            cmd = Command::new(&exe);
+            cmd.args(&final_args);
+
+            // STARTF_USESHOWWINDOW + SW_HIDE via CREATE_NO_WINDOW won't work
+            // with cmd.exe, so we avoid cmd.exe entirely.
+            // The process runs windowless because we use node.exe directly
+            // (not a console app that creates a window).
+        }
 
         #[cfg(not(target_os = "windows"))]
-        let mut cmd = {
-            let mut c = Command::new(command);
-            c.args(args);
-            c
-        };
+        {
+            cmd = Command::new(command);
+            cmd.args(args);
+        }
 
         cmd.stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -49,8 +50,7 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        // CREATE_NO_WINDOW: hide console. Safe now because we skip non-JSON
-        // lines and drain stderr to prevent buffer deadlock.
+        // Hide any console window
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
@@ -68,7 +68,7 @@ impl StdioTransport {
             "Failed to capture stdout".to_string(),
         ))?;
 
-        // Drain stderr in background to prevent OS pipe buffer deadlock
+        // Drain stderr in background
         if let Some(stderr) = child.stderr.take() {
             tokio::spawn(async move {
                 let mut reader = BufReader::new(stderr);
@@ -111,7 +111,7 @@ impl StdioTransport {
             loop {
                 let mut line = String::new();
                 let bytes_read = reader.read_line(&mut line).await.map_err(|e| {
-                    AppError::Custom(format!("Failed to read from MCP stdout: {}", e))
+                    AppError::Custom(format!("Failed to read stdout: {}", e))
                 })?;
                 if bytes_read == 0 {
                     return Err(AppError::Custom(format!(
@@ -123,7 +123,6 @@ impl StdioTransport {
                 if trimmed.is_empty() {
                     continue;
                 }
-                // Only parse lines starting with '{' as JSON-RPC
                 if trimmed.starts_with('{') {
                     match serde_json::from_str::<JsonRpcResponse>(trimmed) {
                         Ok(resp) => return Ok(resp),
@@ -133,7 +132,6 @@ impl StdioTransport {
                         }
                     }
                 }
-                // Skip non-JSON lines
                 last_line = trimmed.to_string();
             }
         }).await;
@@ -176,5 +174,93 @@ impl StdioTransport {
         let mut child = self.child.lock().await;
         let _ = child.kill().await;
         Ok(())
+    }
+}
+
+/// On Windows, resolve "npx" / "npm" / "node" etc. to their actual executable paths,
+/// bypassing .cmd batch file wrappers that break pipe I/O.
+///
+/// Strategy: find node.exe, then for npm/npx, call node.exe with the corresponding
+/// CLI script directly.
+#[cfg(target_os = "windows")]
+fn resolve_windows_command(command: &str, args: &[String]) -> (String, Vec<String>) {
+    let cmd_lower = command.to_lowercase();
+
+    // Find node.exe path
+    let node_exe = find_in_path("node.exe").unwrap_or_else(|| "node.exe".to_string());
+
+    match cmd_lower.as_str() {
+        "npx" | "npx.cmd" => {
+            // npx → node.exe <nodejs_dir>/node_modules/npm/bin/npx-cli.js <args>
+            if let Some(npx_cli) = find_npx_cli(&node_exe) {
+                let mut final_args = vec![npx_cli];
+                final_args.extend(args.iter().cloned());
+                (node_exe, final_args)
+            } else {
+                // Fallback: just try "npx" and hope for the best
+                let mut final_args = args.to_vec();
+                (command.to_string(), final_args)
+            }
+        }
+        "npm" | "npm.cmd" => {
+            if let Some(npm_cli) = find_npm_cli(&node_exe) {
+                let mut final_args = vec![npm_cli];
+                final_args.extend(args.iter().cloned());
+                (node_exe, final_args)
+            } else {
+                (command.to_string(), args.to_vec())
+            }
+        }
+        "node" | "node.exe" => {
+            (node_exe, args.to_vec())
+        }
+        "python" | "python.exe" | "python3" | "python3.exe" => {
+            let py = find_in_path("python.exe").unwrap_or_else(|| command.to_string());
+            (py, args.to_vec())
+        }
+        _ => {
+            // For unknown commands, try to find the .exe directly
+            let exe = find_in_path(&format!("{}.exe", command))
+                .unwrap_or_else(|| command.to_string());
+            (exe, args.to_vec())
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn find_in_path(name: &str) -> Option<String> {
+    let output = std::process::Command::new("where")
+        .arg(name)
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let first = stdout.lines().next()?.trim();
+    if !first.is_empty() && std::path::Path::new(first).exists() {
+        Some(first.to_string())
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn find_npx_cli(node_exe: &str) -> Option<String> {
+    let node_dir = std::path::Path::new(node_exe).parent()?;
+    // Try standard npm installation paths
+    let candidates = [
+        node_dir.join("node_modules").join("npm").join("bin").join("npx-cli.js"),
+        node_dir.join("node_modules").join("npm").join("bin").join("npm-cli.js"),
+    ];
+    let npx_path = candidates.iter().find(|p| p.exists())?;
+    Some(npx_path.to_string_lossy().to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn find_npm_cli(node_exe: &str) -> Option<String> {
+    let node_dir = std::path::Path::new(node_exe).parent()?;
+    let cli = node_dir.join("node_modules").join("npm").join("bin").join("npm-cli.js");
+    if cli.exists() {
+        Some(cli.to_string_lossy().to_string())
+    } else {
+        None
     }
 }

@@ -32,11 +32,9 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-        }
+        // Note: intentionally NOT using CREATE_NO_WINDOW — it breaks
+        // pipe I/O on Windows for some Node.js processes.
+        // A brief console flash is acceptable for reliability.
 
         let mut child = cmd.spawn().map_err(|e| {
             AppError::Custom(format!(
@@ -51,6 +49,21 @@ impl StdioTransport {
         let stdout = child.stdout.take().ok_or(AppError::Custom(
             "Failed to capture stdout".to_string(),
         ))?;
+
+        // Drain stderr in background to prevent buffer deadlock
+        if let Some(stderr) = child.stderr.take() {
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr);
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    match reader.read_line(&mut line).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => {} // discard stderr output
+                    }
+                }
+            });
+        }
 
         Ok(Self {
             child: Mutex::new(child),

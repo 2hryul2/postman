@@ -20,11 +20,26 @@ impl StdioTransport {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        let resolved_command = resolve_command(command);
+        // On Windows: .cmd/.bat files don't properly inherit piped stdio
+        // when executed directly. Use cmd.exe /C to ensure pipes work.
+        #[cfg(target_os = "windows")]
+        let mut cmd = {
+            let resolved = resolve_command(command);
+            let mut c = Command::new("cmd.exe");
+            let mut cmd_args = vec!["/C".to_string(), resolved];
+            cmd_args.extend(args.iter().cloned());
+            c.args(&cmd_args);
+            c
+        };
 
-        let mut cmd = Command::new(&resolved_command);
-        cmd.args(args)
-            .stdin(std::process::Stdio::piped())
+        #[cfg(not(target_os = "windows"))]
+        let mut cmd = {
+            let mut c = Command::new(command);
+            c.args(args);
+            c
+        };
+
+        cmd.stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
@@ -32,14 +47,17 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        // Note: intentionally NOT using CREATE_NO_WINDOW — it breaks
-        // pipe I/O on Windows for some Node.js processes.
-        // A brief console flash is acceptable for reliability.
+        // Use DETACHED_PROCESS to hide console window while keeping pipes working
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+        }
 
         let mut child = cmd.spawn().map_err(|e| {
             AppError::Custom(format!(
-                "Failed to spawn MCP server '{}' (resolved: '{}'): {}",
-                command, resolved_command, e
+                "Failed to spawn MCP server '{}': {}",
+                command, e
             ))
         })?;
 

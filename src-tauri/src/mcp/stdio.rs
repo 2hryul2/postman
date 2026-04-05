@@ -1,17 +1,21 @@
 use crate::error::AppError;
 use crate::models::mcp::{JsonRpcRequest, JsonRpcResponse};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
-use tokio::time::{timeout, Duration};
+use tokio::time::{timeout, Duration, sleep};
 
-const RECEIVE_TIMEOUT_SECS: u64 = 90;
+const SEND_RECV_TIMEOUT_SECS: u64 = 120;
+const MAX_SKIP_LINES: usize = 500;
+const STDERR_BUFFER_SIZE: usize = 50;
 
 pub struct StdioTransport {
     child: Mutex<Child>,
     stdin: Mutex<tokio::process::ChildStdin>,
     reader: Mutex<BufReader<tokio::process::ChildStdout>>,
+    stderr_buf: Arc<Mutex<VecDeque<String>>>,
 }
 
 impl StdioTransport {
@@ -20,29 +24,11 @@ impl StdioTransport {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        let mut cmd;
+        let (exe, final_args) = resolve_program(command, args)?;
 
-        #[cfg(target_os = "windows")]
-        {
-            // On Windows: find the actual executable to bypass .cmd/.bat issues.
-            // For "npx", "npm", "node" etc., find node.exe and run via it.
-            let (exe, mut final_args) = resolve_windows_command(command, args);
-            cmd = Command::new(&exe);
-            cmd.args(&final_args);
-
-            // STARTF_USESHOWWINDOW + SW_HIDE via CREATE_NO_WINDOW won't work
-            // with cmd.exe, so we avoid cmd.exe entirely.
-            // The process runs windowless because we use node.exe directly
-            // (not a console app that creates a window).
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            cmd = Command::new(command);
-            cmd.args(args);
-        }
-
-        cmd.stdin(std::process::Stdio::piped())
+        let mut cmd = Command::new(&exe);
+        cmd.args(&final_args)
+            .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
@@ -50,26 +36,29 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        // Hide any console window
+        // CREATE_NO_WINDOW is safe because we always resolve to .exe (never .cmd)
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+            cmd.creation_flags(0x08000000);
         }
 
         let mut child = cmd.spawn().map_err(|e| {
-            AppError::Custom(format!("Failed to spawn MCP server '{}': {}", command, e))
+            AppError::Custom(format!(
+                "Failed to spawn '{}' (resolved to '{}'): {}",
+                command, exe, e
+            ))
         })?;
 
-        let stdin = child.stdin.take().ok_or(AppError::Custom(
-            "Failed to capture stdin".to_string(),
-        ))?;
-        let stdout = child.stdout.take().ok_or(AppError::Custom(
-            "Failed to capture stdout".to_string(),
-        ))?;
+        let stdin = child.stdin.take()
+            .ok_or(AppError::Custom("Failed to capture stdin".into()))?;
+        let stdout = child.stdout.take()
+            .ok_or(AppError::Custom("Failed to capture stdout".into()))?;
 
-        // Drain stderr in background
+        // Capture stderr in a ring buffer for diagnostics
+        let stderr_buf = Arc::new(Mutex::new(VecDeque::with_capacity(STDERR_BUFFER_SIZE)));
         if let Some(stderr) = child.stderr.take() {
+            let buf = stderr_buf.clone();
             tokio::spawn(async move {
                 let mut reader = BufReader::new(stderr);
                 let mut line = String::new();
@@ -77,71 +66,97 @@ impl StdioTransport {
                     line.clear();
                     match reader.read_line(&mut line).await {
                         Ok(0) | Err(_) => break,
-                        Ok(_) => {}
+                        Ok(_) => {
+                            let mut b = buf.lock().await;
+                            if b.len() >= STDERR_BUFFER_SIZE {
+                                b.pop_front();
+                            }
+                            b.push_back(line.trim().to_string());
+                        }
                     }
                 }
             });
+        }
+
+        // Brief pause + check if process crashed immediately
+        sleep(Duration::from_millis(150)).await;
+        {
+            let mut c = child.try_wait().map_err(|e| {
+                AppError::Custom(format!("Failed to check child process: {}", e))
+            })?;
+            if let Some(status) = c {
+                let stderr_lines = stderr_buf.lock().await;
+                let stderr_text = stderr_lines.iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                return Err(AppError::Custom(format!(
+                    "MCP server exited immediately ({}). stderr:\n{}",
+                    status, stderr_text
+                )));
+            }
         }
 
         Ok(Self {
             child: Mutex::new(child),
             stdin: Mutex::new(stdin),
             reader: Mutex::new(BufReader::new(stdout)),
+            stderr_buf,
         })
     }
 
     pub async fn send(&self, request: &JsonRpcRequest) -> Result<(), AppError> {
-        let mut line = serde_json::to_string(request)?;
-        line.push('\n');
+        let mut data = serde_json::to_string(request)?;
+        data.push('\n');
         let mut stdin = self.stdin.lock().await;
-        stdin.write_all(line.as_bytes()).await.map_err(|e| {
-            AppError::Custom(format!("Failed to write to MCP stdin: {}", e))
+        stdin.write_all(data.as_bytes()).await.map_err(|e| {
+            AppError::Custom(format!("Write to MCP stdin failed: {}", e))
         })?;
         stdin.flush().await.map_err(|e| {
-            AppError::Custom(format!("Failed to flush MCP stdin: {}", e))
+            AppError::Custom(format!("Flush MCP stdin failed: {}", e))
         })?;
         Ok(())
     }
 
+    /// Read one JSON-RPC response. NO timeout here — caller must wrap with timeout.
     pub async fn receive(&self) -> Result<JsonRpcResponse, AppError> {
         let mut reader = self.reader.lock().await;
-        let mut last_line = String::new();
+        let mut skipped = 0usize;
 
-        let result = timeout(Duration::from_secs(RECEIVE_TIMEOUT_SECS), async {
-            loop {
-                let mut line = String::new();
-                let bytes_read = reader.read_line(&mut line).await.map_err(|e| {
-                    AppError::Custom(format!("Failed to read stdout: {}", e))
-                })?;
-                if bytes_read == 0 {
-                    return Err(AppError::Custom(format!(
-                        "MCP server closed stdout. Last: {}",
-                        last_line
-                    )));
-                }
-                let trimmed = line.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                if trimmed.starts_with('{') {
-                    match serde_json::from_str::<JsonRpcResponse>(trimmed) {
-                        Ok(resp) => return Ok(resp),
-                        Err(_) => {
-                            last_line = trimmed.to_string();
-                            continue;
-                        }
-                    }
-                }
-                last_line = trimmed.to_string();
+        loop {
+            let mut line = String::new();
+            let n = reader.read_line(&mut line).await.map_err(|e| {
+                AppError::Custom(format!("Read MCP stdout failed: {}", e))
+            })?;
+
+            if n == 0 {
+                let stderr = self.get_stderr().await;
+                return Err(AppError::Custom(format!(
+                    "MCP server closed stdout (EOF). stderr:\n{}", stderr
+                )));
             }
-        }).await;
 
-        match result {
-            Ok(inner) => inner,
-            Err(_) => Err(AppError::Custom(format!(
-                "Timeout ({}s) waiting for MCP response. Last: {}",
-                RECEIVE_TIMEOUT_SECS, last_line
-            ))),
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            // Only attempt JSON parse on lines starting with '{'
+            if trimmed.starts_with('{') {
+                if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(trimmed) {
+                    return Ok(resp);
+                }
+            }
+
+            // Skip non-JSON output
+            skipped += 1;
+            if skipped > MAX_SKIP_LINES {
+                let stderr = self.get_stderr().await;
+                return Err(AppError::Custom(format!(
+                    "Too many non-JSON lines ({}). Last: '{}'. stderr:\n{}",
+                    skipped, trimmed, stderr
+                )));
+            }
         }
     }
 
@@ -149,24 +164,28 @@ impl StdioTransport {
         self.send(request).await?;
         let request_id = request.id.clone();
 
-        let result = timeout(Duration::from_secs(RECEIVE_TIMEOUT_SECS), async {
+        let result = timeout(Duration::from_secs(SEND_RECV_TIMEOUT_SECS), async {
             loop {
                 let resp = self.receive().await?;
+                // Skip notifications (no id) when waiting for a response
                 if resp.id.is_none() && request_id.is_some() {
                     continue;
                 }
                 if resp.id == request_id {
-                    return Ok(resp);
+                    return Ok::<_, AppError>(resp);
                 }
             }
         }).await;
 
         match result {
             Ok(inner) => inner,
-            Err(_) => Err(AppError::Custom(format!(
-                "Timeout ({}s) matching MCP response",
-                RECEIVE_TIMEOUT_SECS
-            ))),
+            Err(_) => {
+                let stderr = self.get_stderr().await;
+                Err(AppError::Custom(format!(
+                    "Timeout ({}s) waiting for MCP response. stderr:\n{}",
+                    SEND_RECV_TIMEOUT_SECS, stderr
+                )))
+            }
         }
     }
 
@@ -175,123 +194,61 @@ impl StdioTransport {
         let _ = child.kill().await;
         Ok(())
     }
+
+    async fn get_stderr(&self) -> String {
+        let buf = self.stderr_buf.lock().await;
+        buf.iter().cloned().collect::<Vec<_>>().join("\n")
+    }
 }
 
-/// On Windows, resolve "npx" / "npm" / "node" etc. to their actual executable paths,
-/// bypassing .cmd batch file wrappers that break pipe I/O.
-///
-/// Strategy: find node.exe, then for npm/npx, call node.exe with the corresponding
-/// CLI script directly.
-#[cfg(target_os = "windows")]
-fn resolve_windows_command(command: &str, args: &[String]) -> (String, Vec<String>) {
-    let cmd_lower = command.to_lowercase();
+/// Resolve the command to a real executable path.
+/// On Windows, handles .cmd/.bat → node.exe + .js script conversion.
+fn resolve_program(command: &str, args: &[String]) -> Result<(String, Vec<String>), AppError> {
+    // Use `which` to resolve the full path (respects PATHEXT on Windows)
+    let resolved = which::which(command).map_err(|e| {
+        AppError::Custom(format!(
+            "Command '{}' not found in PATH: {}", command, e
+        ))
+    })?;
 
-    // Find node.exe path
-    let node_exe = find_in_path("node.exe").unwrap_or_else(|| "node.exe".to_string());
+    let resolved_str = resolved.to_string_lossy().to_string();
+    let ext = resolved.extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
 
-    match cmd_lower.as_str() {
-        "npx" | "npx.cmd" => {
-            // npx → node.exe <nodejs_dir>/node_modules/npm/bin/npx-cli.js <args>
-            if let Some(npx_cli) = find_npx_cli(&node_exe) {
-                let mut final_args = vec![npx_cli];
-                final_args.extend(args.iter().cloned());
-                (node_exe, final_args)
-            } else {
-                // Fallback: try to find npx-cli.js from well-known node paths
-                let fallback_paths = [
-                    "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js",
-                    "C:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npx-cli.js",
-                ];
-                if let Some(path) = fallback_paths.iter().find(|p| std::path::Path::new(p).exists()) {
-                    let mut final_args = vec![path.to_string()];
-                    final_args.extend(args.iter().cloned());
-                    (node_exe, final_args)
-                } else {
-                    // Last resort: use node_exe with npx as module
-                    let mut final_args = vec!["-e".to_string(),
-                        "require('child_process').execFileSync(process.argv0.replace('node.exe','npx.cmd'),[...process.argv.slice(1)],{stdio:'inherit'})".to_string()];
-                    final_args.extend(args.iter().cloned());
-                    (node_exe, final_args)
+    // On Windows: if resolved to .cmd/.bat, bypass it by calling node.exe directly
+    if ext == "cmd" || ext == "bat" {
+        if let Ok(node_path) = which::which("node") {
+            let node_str = node_path.to_string_lossy().to_string();
+            let node_dir = node_path.parent();
+
+            // For npx/npm, find the corresponding CLI .js script
+            let cmd_lower = command.to_lowercase();
+            if cmd_lower.starts_with("npx") {
+                if let Some(dir) = node_dir {
+                    let cli_js = dir.join("node_modules/npm/bin/npx-cli.js");
+                    if cli_js.exists() {
+                        let mut final_args = vec![cli_js.to_string_lossy().to_string()];
+                        final_args.extend(args.iter().cloned());
+                        return Ok((node_str, final_args));
+                    }
                 }
             }
-        }
-        "npm" | "npm.cmd" => {
-            if let Some(npm_cli) = find_npm_cli(&node_exe) {
-                let mut final_args = vec![npm_cli];
-                final_args.extend(args.iter().cloned());
-                (node_exe, final_args)
-            } else {
-                let fallback = "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js";
-                if std::path::Path::new(fallback).exists() {
-                    let mut final_args = vec![fallback.to_string()];
-                    final_args.extend(args.iter().cloned());
-                    (node_exe, final_args)
-                } else {
-                    (command.to_string(), args.to_vec())
+            if cmd_lower.starts_with("npm") {
+                if let Some(dir) = node_dir {
+                    let cli_js = dir.join("node_modules/npm/bin/npm-cli.js");
+                    if cli_js.exists() {
+                        let mut final_args = vec![cli_js.to_string_lossy().to_string()];
+                        final_args.extend(args.iter().cloned());
+                        return Ok((node_str, final_args));
+                    }
                 }
             }
-        }
-        "node" | "node.exe" => {
-            (node_exe, args.to_vec())
-        }
-        "python" | "python.exe" | "python3" | "python3.exe" => {
-            let py = find_in_path("python.exe").unwrap_or_else(|| command.to_string());
-            (py, args.to_vec())
-        }
-        _ => {
-            // For unknown commands, try to find the .exe directly
-            let exe = find_in_path(&format!("{}.exe", command))
-                .unwrap_or_else(|| command.to_string());
-            (exe, args.to_vec())
+            // Generic .cmd: try running through node if it looks like a JS wrapper
+            // Otherwise fall through to use the resolved path directly
         }
     }
-}
 
-#[cfg(target_os = "windows")]
-fn find_in_path(name: &str) -> Option<String> {
-    // Search PATH env var directly (don't rely on `where` command)
-    if let Ok(path_var) = std::env::var("PATH") {
-        for dir in path_var.split(';') {
-            let dir = dir.trim();
-            if dir.is_empty() { continue; }
-            let candidate = std::path::Path::new(dir).join(name);
-            if candidate.exists() {
-                return Some(candidate.to_string_lossy().to_string());
-            }
-        }
-    }
-    // Also check well-known locations
-    let well_known = [
-        format!("C:\\Program Files\\nodejs\\{}", name),
-        format!("C:\\Program Files (x86)\\nodejs\\{}", name),
-    ];
-    for path in &well_known {
-        if std::path::Path::new(path).exists() {
-            return Some(path.clone());
-        }
-    }
-    None
-}
-
-#[cfg(target_os = "windows")]
-fn find_npx_cli(node_exe: &str) -> Option<String> {
-    let node_dir = std::path::Path::new(node_exe).parent()?;
-    // Try standard npm installation paths
-    let candidates = [
-        node_dir.join("node_modules").join("npm").join("bin").join("npx-cli.js"),
-        node_dir.join("node_modules").join("npm").join("bin").join("npm-cli.js"),
-    ];
-    let npx_path = candidates.iter().find(|p| p.exists())?;
-    Some(npx_path.to_string_lossy().to_string())
-}
-
-#[cfg(target_os = "windows")]
-fn find_npm_cli(node_exe: &str) -> Option<String> {
-    let node_dir = std::path::Path::new(node_exe).parent()?;
-    let cli = node_dir.join("node_modules").join("npm").join("bin").join("npm-cli.js");
-    if cli.exists() {
-        Some(cli.to_string_lossy().to_string())
-    } else {
-        None
-    }
+    // For .exe or non-Windows: use resolved path directly
+    Ok((resolved_str, args.to_vec()))
 }

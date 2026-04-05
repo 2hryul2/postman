@@ -1,4 +1,8 @@
 import { useUIStore } from "@/stores/useUIStore";
+import { ParamsPanel } from "./ParamsPanel";
+import { HeadersPanel } from "./HeadersPanel";
+import { BodyPanel } from "./BodyPanel";
+import { AuthPanel } from "./AuthPanel";
 import styles from "./RequestTabs.module.css";
 
 const TABS = [
@@ -25,12 +29,10 @@ export function RequestTabs() {
         ))}
       </div>
       <div className={styles.tabContent}>
-        <div className={styles.placeholder}>
-          {activeRequestTab === "params" && "파라미터 패널 (키/값 편집기)"}
-          {activeRequestTab === "headers" && "헤더 패널 (키/값 편집기)"}
-          {activeRequestTab === "body" && "Body 패널 (CodeMirror 에디터)"}
-          {activeRequestTab === "auth" && "인증 패널 (타입별 입력 폼)"}
-        </div>
+        {activeRequestTab === "params" && <ParamsPanel />}
+        {activeRequestTab === "headers" && <HeadersPanel />}
+        {activeRequestTab === "body" && <BodyPanel />}
+        {activeRequestTab === "auth" && <AuthPanel />}
       </div>
     </div>
   );

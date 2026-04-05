@@ -1,0 +1,92 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headerRow {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr 24px;
+  gap: 6px;
+  padding: 0 0 4px;
+}
+
+.checkCol {
+  width: 24px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.actionCol {
+  width: 24px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr 24px;
+  gap: 6px;
+  align-items: center;
+}
+
+.check {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--info-text);
+}
+
+.input {
+  height: 28px;
+  padding: 0 8px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-primary);
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--info-text);
+}
+
+.deleteBtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.deleteBtn:hover {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.addBtn {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--info-text);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.addBtn:hover {
+  background: var(--info-bg);
+}

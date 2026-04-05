@@ -1,0 +1,54 @@
+.authPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.typeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.select {
+  height: 30px;
+  padding: 0 8px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--bg-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+.input {
+  height: 30px;
+  padding: 0 10px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-primary);
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--info-text);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}

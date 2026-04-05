@@ -36,3 +36,31 @@ pub fn get_variables(conn: &Connection, environment_id: &str) -> Result<Vec<EnvV
     }
     Ok(result)
 }
+
+pub fn upsert_environment(conn: &Connection, env: &Environment) -> Result<(), AppError> {
+    conn.execute(
+        "INSERT INTO environments (id, name) VALUES (?1, ?2) ON CONFLICT(id) DO UPDATE SET name=?2",
+        rusqlite::params![env.id, env.name],
+    )?;
+    Ok(())
+}
+
+pub fn delete_environment(conn: &Connection, id: &str) -> Result<(), AppError> {
+    conn.execute("DELETE FROM env_variables WHERE environment_id = ?1", [id])?;
+    conn.execute("DELETE FROM environments WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+pub fn upsert_variable(conn: &Connection, var: &EnvVariable) -> Result<(), AppError> {
+    conn.execute(
+        "INSERT INTO env_variables (id, environment_id, key, value, is_secret) VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(id) DO UPDATE SET key=?3, value=?4, is_secret=?5",
+        rusqlite::params![var.id, var.environment_id, var.key, var.value, var.is_secret as i32],
+    )?;
+    Ok(())
+}
+
+pub fn delete_variable(conn: &Connection, id: &str) -> Result<(), AppError> {
+    conn.execute("DELETE FROM env_variables WHERE id = ?1", [id])?;
+    Ok(())
+}

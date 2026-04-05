@@ -2,6 +2,19 @@ use crate::error::AppError;
 use crate::models::history::HistoryItem;
 use rusqlite::Connection;
 
+pub fn insert(conn: &Connection, item: &HistoryItem) -> Result<(), AppError> {
+    conn.execute(
+        "INSERT INTO history (id, request_id, method, url, request_raw, response_status, response_time_ms, response_size_bytes, response_headers, response_body)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        rusqlite::params![
+            item.id, item.request_id, item.method, item.url, item.request_raw,
+            item.response_status, item.response_time_ms, item.response_size_bytes,
+            item.response_headers, item.response_body
+        ],
+    )?;
+    Ok(())
+}
+
 pub fn get_history(conn: &Connection, limit: i64, offset: i64) -> Result<Vec<HistoryItem>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, request_id, method, url, request_raw, response_status, response_time_ms,

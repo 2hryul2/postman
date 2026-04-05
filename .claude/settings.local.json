@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(\"$USERPROFILE/.cargo/bin/rustc.exe\" --version)",
+      "Bash(\"$LOCALAPPDATA/Programs/Rust/bin/rustc.exe\" --version)",
+      "Bash(winget install:*)",
+      "Bash(\"C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/vs_installer.exe\" modify --installPath \"C:/Program Files \\(x86\\)/Microsoft Visual Studio/2022/BuildTools\" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/2022/**)",
+      "Read(//c/Program Files/Microsoft Visual Studio/**)",
+      "Bash(ls \"C:/Program Files \\(x86\\)/Microsoft Visual Studio/2022/BuildTools/VC/\")",
+      "Bash(\"C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/setup.exe\" modify --installPath \"C:/Program Files \\(x86\\)/Microsoft Visual Studio/2022/BuildTools\" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait)",
+      "Bash(\"C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/setup.exe\" modify --installPath \"C:/Program Files \\(x86\\)/Microsoft Visual Studio/2022/BuildTools\" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet)",
+      "Bash('C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/vswhere.exe' -all -format json)",
+      "Bash(\"C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/setup.exe\" install --productId Microsoft.VisualStudio.Product.BuildTools --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --norestart)",
+      "Bash(ls \"C:/Program Files \\(x86\\)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/\")",
+      "Bash(\"C:/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/vswhere.exe\" -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)",
+      "Bash(export PATH=\"$USERPROFILE/.cargo/bin:$PATH\")",
+      "Bash(\"$USERPROFILE/.cargo/bin/cargo.exe\" --version)",
+      "Read(//d/source/**)",
+      "Bash(npx create-tauri-app@latest hiveapi-temp --template react-ts --yes)",
+      "Bash(cp -r \"D:/source/hiveapi-temp/\"* \"D:/source/postman/\")",
+      "Bash(cp \"D:/source/hiveapi-temp/.gitignore\" \"D:/source/postman/\")",
+      "Bash(npm install:*)",
+      "Bash(\"$USERPROFILE/.cargo/bin/cargo.exe\" build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)"
+    ]
+  }
+}

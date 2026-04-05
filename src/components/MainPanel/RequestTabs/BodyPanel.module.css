@@ -1,0 +1,52 @@
+.bodyPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+.typeBar {
+  display: flex;
+  gap: 4px;
+}
+
+.typeBtn {
+  padding: 4px 12px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.typeBtn:hover {
+  background: var(--bg-secondary);
+}
+
+.typeBtn.active {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-text);
+  font-weight: 500;
+}
+
+.editor {
+  flex: 1;
+  min-height: 120px;
+  padding: 10px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  resize: none;
+  outline: none;
+}
+
+.editor:focus {
+  border-color: var(--info-text);
+}

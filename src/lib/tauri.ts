@@ -19,30 +19,33 @@ export const api = {
   }) => invoke<ResponsePayload>("execute_request", params),
 
   getCollections: () => invoke<Collection[]>("get_collections"),
-
   saveCollection: (collection: Collection) =>
     invoke<void>("save_collection", { collection }),
-
   deleteCollection: (id: string) =>
     invoke<void>("delete_collection", { id }),
 
   getRequests: (collectionId: string) =>
     invoke<ApiRequest[]>("get_requests", { collectionId }),
-
   saveRequest: (request: ApiRequest) =>
     invoke<void>("save_request", { request }),
 
   getEnvironments: () => invoke<Environment[]>("get_environments"),
-
   getEnvVariables: (environmentId: string) =>
     invoke<EnvVariable[]>("get_env_variables", { environmentId }),
+  saveEnvironment: (environment: Environment) =>
+    invoke<void>("save_environment", { environment }),
+  deleteEnvironment: (id: string) =>
+    invoke<void>("delete_environment", { id }),
+  saveEnvVariable: (variable: EnvVariable) =>
+    invoke<void>("save_env_variable", { variable }),
+  deleteEnvVariable: (id: string) =>
+    invoke<void>("delete_env_variable", { id }),
 
   getHistory: (limit: number, offset: number) =>
     invoke<HistoryItem[]>("get_history", { limit, offset }),
 
   importPostmanCollection: (filePath: string) =>
     invoke<void>("import_postman_collection", { filePath }),
-
   exportPostmanCollection: (collectionId: string, filePath: string) =>
     invoke<void>("export_postman_collection", { collectionId, filePath }),
 };

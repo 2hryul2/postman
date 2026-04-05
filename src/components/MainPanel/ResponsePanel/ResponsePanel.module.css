@@ -13,6 +13,7 @@
   height: var(--response-header-height);
   padding: 0 12px;
   border-bottom: 0.5px solid var(--border-weak);
+  flex-shrink: 0;
 }
 
 .statusPill {
@@ -27,9 +28,38 @@
   color: var(--text-tertiary);
 }
 
-.body {
+.respTabs {
+  margin-left: auto;
+  display: flex;
+  gap: 0;
+}
+
+.respTab {
+  padding: 2px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.respTab:hover {
+  color: var(--text-primary);
+}
+
+.respTabActive {
+  color: var(--info-text);
+  border-bottom-color: var(--info-text);
+  font-weight: 500;
+}
+
+.bodyArea {
   flex: 1;
   overflow: auto;
+}
+
+.body {
   padding: 12px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -57,4 +87,32 @@
   color: var(--danger-text);
   font-size: 13px;
   padding: 12px;
+}
+
+.headerList {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headerItem {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 0.5px solid var(--border-weak);
+}
+
+.headerKey {
+  font-weight: 500;
+  color: var(--info-text);
+  min-width: 160px;
+  font-family: var(--font-mono);
+}
+
+.headerValue {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  word-break: break-all;
 }

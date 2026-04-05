@@ -1,14 +1,27 @@
+import { useState } from "react";
 import { useResponseStore } from "@/stores/useResponseStore";
 import { getStatusCategory, STATUS_COLORS } from "@/lib/constants";
 import styles from "./ResponsePanel.module.css";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+function tryFormatJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
+type RespTab = "pretty" | "raw" | "headers";
 
 export function ResponsePanel() {
   const { response, isLoading, error } = useResponseStore();
+  const [activeTab, setActiveTab] = useState<RespTab>("pretty");
 
   if (isLoading) {
     return (
@@ -50,8 +63,36 @@ export function ResponsePanel() {
         </span>
         <span className={styles.meta}>{response.time_ms}ms</span>
         <span className={styles.meta}>{formatSize(response.size_bytes)}</span>
+        <div className={styles.respTabs}>
+          {(["pretty", "raw", "headers"] as const).map((tab) => (
+            <button
+              key={tab}
+              className={`${styles.respTab} ${activeTab === tab ? styles.respTabActive : ""}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab === "pretty" ? "Pretty" : tab === "raw" ? "Raw" : "헤더"}
+            </button>
+          ))}
+        </div>
       </div>
-      <pre className={styles.body}>{response.body}</pre>
+      <div className={styles.bodyArea}>
+        {activeTab === "pretty" && (
+          <pre className={styles.body}>{tryFormatJson(response.body)}</pre>
+        )}
+        {activeTab === "raw" && (
+          <pre className={styles.body}>{response.body}</pre>
+        )}
+        {activeTab === "headers" && (
+          <div className={styles.headerList}>
+            {Object.entries(response.headers).map(([k, v]) => (
+              <div key={k} className={styles.headerItem}>
+                <span className={styles.headerKey}>{k}</span>
+                <span className={styles.headerValue}>{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -66,6 +66,177 @@
   padding: 20px 0;
 }
 
+/* Sidebar tabs */
+.tabRow {
+  display: flex;
+  padding: 0 10px;
+  gap: 0;
+  border-bottom: 0.5px solid var(--border-weak);
+}
+
+.sidebarTabBtn {
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.sidebarTabBtn:hover {
+  color: var(--text-primary);
+}
+
+.sidebarTabActive {
+  color: var(--info-text);
+  border-bottom-color: var(--info-text);
+}
+
+/* History items */
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.historyItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.historyUrl {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.historyStatus {
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Folder */
+.folder {
+  margin-bottom: 2px;
+}
+
+.folderHeader {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.folderHeader:hover {
+  background: var(--bg-tertiary);
+}
+
+.arrow {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.folderName {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addReqBtn,
+.deleteColBtn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.folderHeader:hover .addReqBtn,
+.folderHeader:hover .deleteColBtn {
+  opacity: 1;
+}
+
+.addReqBtn:hover {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.deleteColBtn:hover {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+/* Request items */
+.requestList {
+  padding-left: 16px;
+}
+
+.requestItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.requestItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.requestItem.active {
+  border-left-color: var(--info-text);
+  background: var(--bg-primary);
+}
+
+.methodBadge {
+  min-width: 32px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.requestName {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Environment bar */
 .envBar {
   display: flex;
   align-items: center;

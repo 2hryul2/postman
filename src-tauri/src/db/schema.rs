@@ -41,6 +41,30 @@ pub fn initialize_database(conn: &Connection) -> Result<(), rusqlite::Error> {
             is_secret      INTEGER DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS mcp_servers (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            transport     TEXT NOT NULL,
+            command       TEXT,
+            args          TEXT,
+            env           TEXT,
+            url           TEXT,
+            headers       TEXT,
+            auto_connect  INTEGER DEFAULT 0,
+            created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS mcp_history (
+            id            TEXT PRIMARY KEY,
+            server_id     TEXT REFERENCES mcp_servers(id),
+            method        TEXT NOT NULL,
+            params        TEXT,
+            result        TEXT,
+            is_error      INTEGER DEFAULT 0,
+            time_ms       INTEGER,
+            executed_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS history (
             id                  TEXT PRIMARY KEY,
             request_id          TEXT,

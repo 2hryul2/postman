@@ -3,11 +3,13 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { useRequestStore } from "@/stores/useRequestStore";
 import { useEnvironmentStore } from "@/stores/useEnvironmentStore";
+import { useUIStore } from "@/stores/useUIStore";
 import { api } from "@/lib/tauri";
 import { generateId } from "@/lib/uuid";
 import { METHOD_COLORS, STATUS_COLORS, getStatusCategory } from "@/lib/constants";
 import type { HttpMethod, Collection, ApiRequest, HistoryItem } from "@/types";
 import { EnvManager } from "./EnvManager";
+import { McpSidebar } from "@/components/Mcp/McpSidebar";
 import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
@@ -23,9 +25,9 @@ export function Sidebar({ width }: SidebarProps) {
   } = useCollectionStore();
   const { environments, activeEnvironmentId, setEnvironments, setActiveEnvironmentId, setVariables } = useEnvironmentStore();
   const reqStore = useRequestStore();
+  const { sidebarTab, setSidebarTab } = useUIStore();
   const [search, setSearch] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [sidebarTab, setSidebarTab] = useState<"collections" | "history">("collections");
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [envManagerOpen, setEnvManagerOpen] = useState(false);
 
@@ -192,9 +194,16 @@ export function Sidebar({ width }: SidebarProps) {
         >
           히스토리
         </button>
+        <button
+          className={`${styles.sidebarTabBtn} ${sidebarTab === "mcp" ? styles.sidebarTabActive : ""}`}
+          onClick={() => setSidebarTab("mcp")}
+        >
+          MCP
+        </button>
       </div>
 
       <div className={styles.collections}>
+        {sidebarTab === "mcp" && <McpSidebar />}
         {sidebarTab === "collections" && <div className={styles.sectionLabel}>COLLECTIONS</div>}
         {sidebarTab === "history" && (
           historyItems.length === 0 ? (

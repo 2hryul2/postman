@@ -70,3 +70,64 @@ export interface ResponsePayload {
   time_ms: number;
   size_bytes: number;
 }
+
+// MCP types
+export type McpTransport = "stdio" | "http";
+
+export interface McpServer {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  command: string | null;
+  args: string | null;
+  env: string | null;
+  url: string | null;
+  headers: string | null;
+  auto_connect: boolean;
+  created_at: string | null;
+}
+
+export interface McpTool {
+  name: string;
+  title: string | null;
+  description: string | null;
+  inputSchema: Record<string, unknown> | null;
+}
+
+export interface McpResource {
+  uri: string;
+  name: string | null;
+  description: string | null;
+  mimeType: string | null;
+}
+
+export interface McpPromptArgument {
+  name: string;
+  description: string | null;
+  required: boolean | null;
+}
+
+export interface McpPrompt {
+  name: string;
+  description: string | null;
+  arguments: McpPromptArgument[] | null;
+}
+
+export interface McpConnectionInfo {
+  tools: McpTool[];
+  resources: McpResource[];
+  prompts: McpPrompt[];
+  protocol_version: string;
+  server_name: string;
+}
+
+export interface McpHistoryItem {
+  id: string;
+  server_id: string | null;
+  method: string;
+  params: string | null;
+  result: string | null;
+  is_error: boolean;
+  time_ms: number | null;
+  executed_at: string | null;
+}

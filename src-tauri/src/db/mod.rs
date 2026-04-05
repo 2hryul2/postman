@@ -1,6 +1,7 @@
 pub mod collections;
 pub mod environments;
 pub mod history;
+pub mod mcp;
 pub mod requests;
 pub mod schema;
 

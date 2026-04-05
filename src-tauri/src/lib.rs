@@ -1,8 +1,10 @@
 mod commands;
 mod db;
 mod error;
+mod mcp;
 mod models;
 
+use commands::mcp::McpState;
 use db::Database;
 use tauri::Manager;
 
@@ -29,6 +31,7 @@ pub fn run() {
             }
 
             app.manage(database);
+            app.manage(McpState::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -47,6 +50,19 @@ pub fn run() {
             commands::history::get_history,
             commands::import_export::import_postman_collection,
             commands::import_export::export_postman_collection,
+            // MCP commands
+            commands::mcp::mcp_get_servers,
+            commands::mcp::mcp_save_server,
+            commands::mcp::mcp_delete_server,
+            commands::mcp::mcp_connect,
+            commands::mcp::mcp_disconnect,
+            commands::mcp::mcp_tools_list,
+            commands::mcp::mcp_tools_call,
+            commands::mcp::mcp_resources_list,
+            commands::mcp::mcp_resources_read,
+            commands::mcp::mcp_prompts_list,
+            commands::mcp::mcp_prompts_get,
+            commands::mcp::mcp_get_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running HiveAPI");

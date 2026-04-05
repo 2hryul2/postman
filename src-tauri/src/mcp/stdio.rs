@@ -84,15 +84,40 @@ impl StdioTransport {
 
     pub async fn receive(&self) -> Result<JsonRpcResponse, AppError> {
         let mut reader = self.reader.lock().await;
-        let mut line = String::new();
-        reader.read_line(&mut line).await.map_err(|e| {
-            AppError::Custom(format!("Failed to read from MCP stdout: {}", e))
-        })?;
-        if line.is_empty() {
-            return Err(AppError::Custom("MCP server closed stdout".to_string()));
+        // Read lines until we find valid JSON-RPC (skip non-JSON lines from cmd.exe/npx)
+        let mut attempts = 0;
+        loop {
+            let mut line = String::new();
+            let bytes_read = reader.read_line(&mut line).await.map_err(|e| {
+                AppError::Custom(format!("Failed to read from MCP stdout: {}", e))
+            })?;
+            if bytes_read == 0 {
+                return Err(AppError::Custom("MCP server closed stdout".to_string()));
+            }
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                attempts += 1;
+                if attempts > 100 {
+                    return Err(AppError::Custom("Too many empty lines from MCP server".to_string()));
+                }
+                continue;
+            }
+            // Only try to parse lines that look like JSON objects
+            if trimmed.starts_with('{') {
+                match serde_json::from_str::<JsonRpcResponse>(trimmed) {
+                    Ok(resp) => return Ok(resp),
+                    Err(_) => continue, // malformed JSON, skip
+                }
+            }
+            // Non-JSON line (cmd.exe banner, npx download progress, etc.) — skip
+            attempts += 1;
+            if attempts > 200 {
+                return Err(AppError::Custom(format!(
+                    "No valid JSON-RPC response after 200 lines. Last line: {}",
+                    trimmed
+                )));
+            }
         }
-        let resp: JsonRpcResponse = serde_json::from_str(line.trim())?;
-        Ok(resp)
     }
 
     pub async fn send_and_receive(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, AppError> {

@@ -34,7 +34,9 @@
       "Bash(echo $PATH)",
       "Bash(export PATH=\"/c/Users/sds/.cargo/bin:$PATH\")",
       "Bash(where npx:*)",
-      "Bash(taskkill //IM hiveapi.exe //F)"
+      "Bash(taskkill //IM hiveapi.exe //F)",
+      "Bash(npx -y @modelcontextprotocol/server-everything --help)",
+      "Bash(npx -y @modelcontextprotocol/server-everything)"
     ]
   }
 }

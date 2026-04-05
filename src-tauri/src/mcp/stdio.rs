@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
+use tokio::time::{timeout, Duration};
+
+const RECEIVE_TIMEOUT_SECS: u64 = 90;
 
 pub struct StdioTransport {
     child: Mutex<Child>,
@@ -17,34 +20,18 @@ impl StdioTransport {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        // On Windows, use cmd.exe /C to resolve .cmd/.bat files (e.g. npx → npx.cmd)
-        // and inherit the full system PATH
-        #[cfg(target_os = "windows")]
-        let mut cmd = {
-            let mut full_args = vec!["/C".to_string(), command.to_string()];
-            full_args.extend(args.iter().cloned());
-            let mut c = Command::new("cmd.exe");
-            c.args(&full_args);
-            c
-        };
+        let resolved_command = resolve_command(command);
 
-        #[cfg(not(target_os = "windows"))]
-        let mut cmd = {
-            let mut c = Command::new(command);
-            c.args(args);
-            c
-        };
-
-        cmd.stdin(std::process::Stdio::piped())
+        let mut cmd = Command::new(&resolved_command);
+        cmd.args(args)
+            .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
-        // Merge with current env + custom env
         for (k, v) in env {
             cmd.env(k, v);
         }
 
-        // On Windows, prevent console window from appearing
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
@@ -52,7 +39,10 @@ impl StdioTransport {
         }
 
         let mut child = cmd.spawn().map_err(|e| {
-            AppError::Custom(format!("Failed to spawn MCP server '{}': {}", command, e))
+            AppError::Custom(format!(
+                "Failed to spawn MCP server '{}' (resolved: '{}'): {}",
+                command, resolved_command, e
+            ))
         })?;
 
         let stdin = child.stdin.take().ok_or(AppError::Custom(
@@ -84,56 +74,68 @@ impl StdioTransport {
 
     pub async fn receive(&self) -> Result<JsonRpcResponse, AppError> {
         let mut reader = self.reader.lock().await;
-        // Read lines until we find valid JSON-RPC (skip non-JSON lines from cmd.exe/npx)
-        let mut attempts = 0;
-        loop {
-            let mut line = String::new();
-            let bytes_read = reader.read_line(&mut line).await.map_err(|e| {
-                AppError::Custom(format!("Failed to read from MCP stdout: {}", e))
-            })?;
-            if bytes_read == 0 {
-                return Err(AppError::Custom("MCP server closed stdout".to_string()));
-            }
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                attempts += 1;
-                if attempts > 100 {
-                    return Err(AppError::Custom("Too many empty lines from MCP server".to_string()));
+        let mut last_line = String::new();
+
+        let result = timeout(Duration::from_secs(RECEIVE_TIMEOUT_SECS), async {
+            loop {
+                let mut line = String::new();
+                let bytes_read = reader.read_line(&mut line).await.map_err(|e| {
+                    AppError::Custom(format!("Failed to read from MCP stdout: {}", e))
+                })?;
+                if bytes_read == 0 {
+                    return Err(AppError::Custom(format!(
+                        "MCP server closed stdout. Last: {}",
+                        last_line
+                    )));
                 }
-                continue;
-            }
-            // Only try to parse lines that look like JSON objects
-            if trimmed.starts_with('{') {
-                match serde_json::from_str::<JsonRpcResponse>(trimmed) {
-                    Ok(resp) => return Ok(resp),
-                    Err(_) => continue, // malformed JSON, skip
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
                 }
+                if trimmed.starts_with('{') {
+                    match serde_json::from_str::<JsonRpcResponse>(trimmed) {
+                        Ok(resp) => return Ok(resp),
+                        Err(_) => {
+                            last_line = trimmed.to_string();
+                            continue;
+                        }
+                    }
+                }
+                last_line = trimmed.to_string();
             }
-            // Non-JSON line (cmd.exe banner, npx download progress, etc.) — skip
-            attempts += 1;
-            if attempts > 200 {
-                return Err(AppError::Custom(format!(
-                    "No valid JSON-RPC response after 200 lines. Last line: {}",
-                    trimmed
-                )));
-            }
+        }).await;
+
+        match result {
+            Ok(inner) => inner,
+            Err(_) => Err(AppError::Custom(format!(
+                "Timeout ({}s) waiting for MCP response. Last: {}",
+                RECEIVE_TIMEOUT_SECS, last_line
+            ))),
         }
     }
 
     pub async fn send_and_receive(&self, request: &JsonRpcRequest) -> Result<JsonRpcResponse, AppError> {
         self.send(request).await?;
-        // Read responses until we get one matching our request id
         let request_id = request.id.clone();
-        loop {
-            let resp = self.receive().await?;
-            // Notifications have no id — skip them
-            if resp.id.is_none() && request_id.is_some() {
-                continue;
+
+        let result = timeout(Duration::from_secs(RECEIVE_TIMEOUT_SECS), async {
+            loop {
+                let resp = self.receive().await?;
+                if resp.id.is_none() && request_id.is_some() {
+                    continue;
+                }
+                if resp.id == request_id {
+                    return Ok(resp);
+                }
             }
-            // Match response id
-            if resp.id == request_id {
-                return Ok(resp);
-            }
+        }).await;
+
+        match result {
+            Ok(inner) => inner,
+            Err(_) => Err(AppError::Custom(format!(
+                "Timeout ({}s) matching MCP response",
+                RECEIVE_TIMEOUT_SECS
+            ))),
         }
     }
 
@@ -141,5 +143,45 @@ impl StdioTransport {
         let mut child = self.child.lock().await;
         let _ = child.kill().await;
         Ok(())
+    }
+}
+
+/// On Windows, resolve bare commands like "npx" → "npx.cmd" for direct execution.
+/// This avoids cmd.exe /C which causes stdout buffering issues.
+fn resolve_command(command: &str) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        // If already has extension or is an absolute path, use as-is
+        if command.contains('.') || command.contains('\\') || command.contains('/') {
+            return command.to_string();
+        }
+        // Try to find command.cmd or command.exe in PATH
+        if let Ok(output) = std::process::Command::new("where")
+            .arg(format!("{}.cmd", command))
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let first_line = stdout.lines().next().unwrap_or("").trim();
+            if !first_line.is_empty() && std::path::Path::new(first_line).exists() {
+                return first_line.to_string();
+            }
+        }
+        // Fallback: try .exe
+        if let Ok(output) = std::process::Command::new("where")
+            .arg(format!("{}.exe", command))
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let first_line = stdout.lines().next().unwrap_or("").trim();
+            if !first_line.is_empty() && std::path::Path::new(first_line).exists() {
+                return first_line.to_string();
+            }
+        }
+        // Last resort: return as-is
+        command.to_string()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        command.to_string()
     }
 }

@@ -38,7 +38,9 @@
       "Bash(npx -y @modelcontextprotocol/server-everything --help)",
       "Bash(npx -y @modelcontextprotocol/server-everything)",
       "Bash(taskkill //IM node.exe //F)",
-      "Bash(taskkill //IM cmd.exe //F)"
+      "Bash(taskkill //IM cmd.exe //F)",
+      "Bash(node \"C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js\" -y @modelcontextprotocol/server-everything --help)",
+      "Bash(node 'C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js' -y @modelcontextprotocol/server-everything)"
     ]
   }
 }

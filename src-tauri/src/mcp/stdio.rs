@@ -197,9 +197,22 @@ fn resolve_windows_command(command: &str, args: &[String]) -> (String, Vec<Strin
                 final_args.extend(args.iter().cloned());
                 (node_exe, final_args)
             } else {
-                // Fallback: just try "npx" and hope for the best
-                let mut final_args = args.to_vec();
-                (command.to_string(), final_args)
+                // Fallback: try to find npx-cli.js from well-known node paths
+                let fallback_paths = [
+                    "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js",
+                    "C:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npx-cli.js",
+                ];
+                if let Some(path) = fallback_paths.iter().find(|p| std::path::Path::new(p).exists()) {
+                    let mut final_args = vec![path.to_string()];
+                    final_args.extend(args.iter().cloned());
+                    (node_exe, final_args)
+                } else {
+                    // Last resort: use node_exe with npx as module
+                    let mut final_args = vec!["-e".to_string(),
+                        "require('child_process').execFileSync(process.argv0.replace('node.exe','npx.cmd'),[...process.argv.slice(1)],{stdio:'inherit'})".to_string()];
+                    final_args.extend(args.iter().cloned());
+                    (node_exe, final_args)
+                }
             }
         }
         "npm" | "npm.cmd" => {
@@ -208,7 +221,14 @@ fn resolve_windows_command(command: &str, args: &[String]) -> (String, Vec<Strin
                 final_args.extend(args.iter().cloned());
                 (node_exe, final_args)
             } else {
-                (command.to_string(), args.to_vec())
+                let fallback = "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js";
+                if std::path::Path::new(fallback).exists() {
+                    let mut final_args = vec![fallback.to_string()];
+                    final_args.extend(args.iter().cloned());
+                    (node_exe, final_args)
+                } else {
+                    (command.to_string(), args.to_vec())
+                }
             }
         }
         "node" | "node.exe" => {
@@ -229,17 +249,28 @@ fn resolve_windows_command(command: &str, args: &[String]) -> (String, Vec<Strin
 
 #[cfg(target_os = "windows")]
 fn find_in_path(name: &str) -> Option<String> {
-    let output = std::process::Command::new("where")
-        .arg(name)
-        .output()
-        .ok()?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let first = stdout.lines().next()?.trim();
-    if !first.is_empty() && std::path::Path::new(first).exists() {
-        Some(first.to_string())
-    } else {
-        None
+    // Search PATH env var directly (don't rely on `where` command)
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in path_var.split(';') {
+            let dir = dir.trim();
+            if dir.is_empty() { continue; }
+            let candidate = std::path::Path::new(dir).join(name);
+            if candidate.exists() {
+                return Some(candidate.to_string_lossy().to_string());
+            }
+        }
     }
+    // Also check well-known locations
+    let well_known = [
+        format!("C:\\Program Files\\nodejs\\{}", name),
+        format!("C:\\Program Files (x86)\\nodejs\\{}", name),
+    ];
+    for path in &well_known {
+        if std::path::Path::new(path).exists() {
+            return Some(path.clone());
+        }
+    }
+    None
 }
 
 #[cfg(target_os = "windows")]

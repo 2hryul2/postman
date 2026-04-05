@@ -20,15 +20,17 @@ impl StdioTransport {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> Result<Self, AppError> {
-        // On Windows: .cmd/.bat files don't properly inherit piped stdio
-        // when executed directly. Use cmd.exe /C to ensure pipes work.
+        // On Windows: use "cmd.exe /S /C "command args..."" to properly handle
+        // PATH resolution and spaces. cmd.exe finds npx.cmd via PATH automatically.
         #[cfg(target_os = "windows")]
         let mut cmd = {
-            let resolved = resolve_command(command);
+            // Build full command string for cmd.exe /S /C "..."
+            let mut parts = vec![command.to_string()];
+            parts.extend(args.iter().cloned());
+            let full_cmd = parts.join(" ");
+
             let mut c = Command::new("cmd.exe");
-            let mut cmd_args = vec!["/C".to_string(), resolved];
-            cmd_args.extend(args.iter().cloned());
-            c.args(&cmd_args);
+            c.args(["/S", "/C", &full_cmd]);
             c
         };
 
@@ -47,18 +49,16 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        // Use DETACHED_PROCESS to hide console window while keeping pipes working
+        // CREATE_NO_WINDOW: hide console. Safe now because we skip non-JSON
+        // lines and drain stderr to prevent buffer deadlock.
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         }
 
         let mut child = cmd.spawn().map_err(|e| {
-            AppError::Custom(format!(
-                "Failed to spawn MCP server '{}': {}",
-                command, e
-            ))
+            AppError::Custom(format!("Failed to spawn MCP server '{}': {}", command, e))
         })?;
 
         let stdin = child.stdin.take().ok_or(AppError::Custom(
@@ -68,7 +68,7 @@ impl StdioTransport {
             "Failed to capture stdout".to_string(),
         ))?;
 
-        // Drain stderr in background to prevent buffer deadlock
+        // Drain stderr in background to prevent OS pipe buffer deadlock
         if let Some(stderr) = child.stderr.take() {
             tokio::spawn(async move {
                 let mut reader = BufReader::new(stderr);
@@ -77,7 +77,7 @@ impl StdioTransport {
                     line.clear();
                     match reader.read_line(&mut line).await {
                         Ok(0) | Err(_) => break,
-                        Ok(_) => {} // discard stderr output
+                        Ok(_) => {}
                     }
                 }
             });
@@ -123,6 +123,7 @@ impl StdioTransport {
                 if trimmed.is_empty() {
                     continue;
                 }
+                // Only parse lines starting with '{' as JSON-RPC
                 if trimmed.starts_with('{') {
                     match serde_json::from_str::<JsonRpcResponse>(trimmed) {
                         Ok(resp) => return Ok(resp),
@@ -132,6 +133,7 @@ impl StdioTransport {
                         }
                     }
                 }
+                // Skip non-JSON lines
                 last_line = trimmed.to_string();
             }
         }).await;
@@ -174,45 +176,5 @@ impl StdioTransport {
         let mut child = self.child.lock().await;
         let _ = child.kill().await;
         Ok(())
-    }
-}
-
-/// On Windows, resolve bare commands like "npx" → "npx.cmd" for direct execution.
-/// This avoids cmd.exe /C which causes stdout buffering issues.
-fn resolve_command(command: &str) -> String {
-    #[cfg(target_os = "windows")]
-    {
-        // If already has extension or is an absolute path, use as-is
-        if command.contains('.') || command.contains('\\') || command.contains('/') {
-            return command.to_string();
-        }
-        // Try to find command.cmd or command.exe in PATH
-        if let Ok(output) = std::process::Command::new("where")
-            .arg(format!("{}.cmd", command))
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let first_line = stdout.lines().next().unwrap_or("").trim();
-            if !first_line.is_empty() && std::path::Path::new(first_line).exists() {
-                return first_line.to_string();
-            }
-        }
-        // Fallback: try .exe
-        if let Ok(output) = std::process::Command::new("where")
-            .arg(format!("{}.exe", command))
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let first_line = stdout.lines().next().unwrap_or("").trim();
-            if !first_line.is_empty() && std::path::Path::new(first_line).exists() {
-                return first_line.to_string();
-            }
-        }
-        // Last resort: return as-is
-        command.to_string()
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        command.to_string()
     }
 }

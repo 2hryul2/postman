@@ -37,7 +37,8 @@
       "Bash(taskkill //IM hiveapi.exe //F)",
       "Bash(npx -y @modelcontextprotocol/server-everything --help)",
       "Bash(npx -y @modelcontextprotocol/server-everything)",
-      "Bash(taskkill //IM node.exe //F)"
+      "Bash(taskkill //IM node.exe //F)",
+      "Bash(taskkill //IM cmd.exe //F)"
     ]
   }
 }

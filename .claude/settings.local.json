@@ -40,7 +40,10 @@
       "Bash(taskkill //IM node.exe //F)",
       "Bash(taskkill //IM cmd.exe //F)",
       "Bash(node \"C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js\" -y @modelcontextprotocol/server-everything --help)",
-      "Bash(node 'C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js' -y @modelcontextprotocol/server-everything)"
+      "Bash(node 'C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js' -y @modelcontextprotocol/server-everything)",
+      "Bash(sqlite3 \"$APPDATA/com.hiveapi.app/hiveapi.db\" \"SELECT id, name, transport, command, args FROM mcp_servers;\")",
+      "Bash(\"$USERPROFILE/.cargo/bin/cargo.exe\" eval:*)",
+      "Read(//d/source/postman/$APPDATA/com.hiveapi.app/**)"
     ]
   }
 }

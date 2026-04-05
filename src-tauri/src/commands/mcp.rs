@@ -73,6 +73,12 @@ pub async fn mcp_connect(
             let env: HashMap<String, String> = server.env.as_deref()
                 .and_then(|e| serde_json::from_str(e).ok())
                 .unwrap_or_default();
+            if args.is_empty() {
+                return Err(AppError::Custom(format!(
+                    "No arguments configured for server '{}'. Raw args field: {:?}",
+                    server.name, server.args
+                )));
+            }
             McpClient::connect_stdio(command, &args, &env).await?
         }
         "http" => {

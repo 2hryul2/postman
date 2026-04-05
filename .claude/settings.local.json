@@ -25,7 +25,14 @@
       "Bash(npm install:*)",
       "Bash(\"$USERPROFILE/.cargo/bin/cargo.exe\" build:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(PATH=\"$USERPROFILE/.cargo/bin:$PATH\" npx tauri build)",
+      "Bash(export CARGO_HOME=\"$USERPROFILE/.cargo\")",
+      "Bash(export RUSTUP_HOME=\"$USERPROFILE/.rustup\")",
+      "Bash(npx tauri:*)",
+      "Bash(PATH=\"C:\\\\Users\\\\sds\\\\.cargo\\\\bin;$PATH\" node_modules/.bin/tauri build)",
+      "Bash(echo $PATH)",
+      "Bash(export PATH=\"/c/Users/sds/.cargo/bin:$PATH\")"
     ]
   }
 }

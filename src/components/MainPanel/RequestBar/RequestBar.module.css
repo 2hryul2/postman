@@ -37,6 +37,31 @@
   border-color: var(--info-text);
 }
 
+.saveBtn {
+  height: 32px;
+  min-width: 48px;
+  padding: 0 12px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-text);
+}
+
+.saveBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .sendBtn {
   height: 32px;
   min-width: 60px;

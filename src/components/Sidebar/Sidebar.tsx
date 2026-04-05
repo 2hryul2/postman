@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { useRequestStore } from "@/stores/useRequestStore";
 import { useEnvironmentStore } from "@/stores/useEnvironmentStore";
@@ -6,6 +7,7 @@ import { api } from "@/lib/tauri";
 import { generateId } from "@/lib/uuid";
 import { METHOD_COLORS, STATUS_COLORS, getStatusCategory } from "@/lib/constants";
 import type { HttpMethod, Collection, ApiRequest, HistoryItem } from "@/types";
+import { EnvManager } from "./EnvManager";
 import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
@@ -25,6 +27,7 @@ export function Sidebar({ width }: SidebarProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sidebarTab, setSidebarTab] = useState<"collections" | "history">("collections");
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [envManagerOpen, setEnvManagerOpen] = useState(false);
 
   // Load collections on mount
   useEffect(() => {
@@ -129,6 +132,30 @@ export function Sidebar({ width }: SidebarProps) {
     }
   }, [activeCollectionId, setCollections, setActiveCollectionId, setRequests]);
 
+  // Import Postman collection
+  const handleImport = useCallback(async () => {
+    const file = await open({
+      multiple: false,
+      filters: [{ name: "Postman Collection", extensions: ["json"] }],
+    });
+    if (!file) return;
+    const filePath = typeof file === "string" ? file : file;
+    await api.importPostmanCollection(filePath as string);
+    const updated = await api.getCollections();
+    setCollections(updated);
+  }, [setCollections]);
+
+  // Export collection
+  const handleExport = useCallback(async (collectionId: string, collectionName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const filePath = await save({
+      defaultPath: `${collectionName}.json`,
+      filters: [{ name: "Postman Collection", extensions: ["json"] }],
+    });
+    if (!filePath) return;
+    await api.exportPostmanCollection(collectionId, filePath);
+  }, []);
+
   // Filter collections by search
   const filtered = search
     ? collections.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
@@ -146,6 +173,9 @@ export function Sidebar({ width }: SidebarProps) {
         />
         <button className={styles.newBtn} onClick={createCollection}>
           + 새 컬렉션
+        </button>
+        <button className={styles.importBtn} onClick={handleImport}>
+          가져오기 (Postman)
         </button>
       </div>
 
@@ -225,6 +255,13 @@ export function Sidebar({ width }: SidebarProps) {
                   +
                 </button>
                 <button
+                  className={styles.exportBtn}
+                  onClick={(e) => handleExport(col.id, col.name, e)}
+                  title="Postman 내보내기"
+                >
+                  &#x2913;
+                </button>
+                <button
                   className={styles.deleteColBtn}
                   onClick={(e) => deleteCollection(col.id, e)}
                   title="삭제"
@@ -271,7 +308,18 @@ export function Sidebar({ width }: SidebarProps) {
             <option key={env.id} value={env.id}>{env.name}</option>
           ))}
         </select>
+        <button
+          className={styles.envEditBtn}
+          onClick={() => setEnvManagerOpen(true)}
+          title="환경 관리"
+        >
+          &#x2699;
+        </button>
       </div>
+
+      {envManagerOpen && (
+        <EnvManager onClose={() => setEnvManagerOpen(false)} />
+      )}
     </div>
   );
 }

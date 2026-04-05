@@ -44,6 +44,23 @@
   opacity: 0.85;
 }
 
+.importBtn {
+  height: 28px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.importBtn:hover {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-color: var(--warn-text);
+}
+
 .collections {
   flex: 1;
   overflow-y: auto;
@@ -180,7 +197,8 @@
 }
 
 .folderHeader:hover .addReqBtn,
-.folderHeader:hover .deleteColBtn {
+.folderHeader:hover .deleteColBtn,
+.folderHeader:hover .exportBtn {
   opacity: 1;
 }
 
@@ -192,6 +210,27 @@
 .deleteColBtn:hover {
   background: var(--danger-bg);
   color: var(--danger-text);
+}
+
+.exportBtn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.exportBtn:hover {
+  background: var(--warn-bg);
+  color: var(--warn-text);
 }
 
 /* Request items */
@@ -263,4 +302,24 @@
   outline: none;
   cursor: pointer;
   appearance: none;
+}
+
+.envEditBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.envEditBtn:hover {
+  background: var(--info-bg);
+  color: var(--info-text);
 }

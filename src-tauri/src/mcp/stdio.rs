@@ -36,11 +36,14 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        // CREATE_NO_WINDOW is safe because we always resolve to .exe (never .cmd)
+        // Do NOT use CREATE_NO_WINDOW — it breaks Node.js piped stdio on Windows.
+        // Console window is hidden by using STARTUPINFO instead (see below).
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x08000000);
+            // CREATE_NEW_PROCESS_GROUP: detach from parent's console signals
+            // but allow the child to create its own console (hidden by piped stdio)
+            cmd.creation_flags(0x00000200); // CREATE_NEW_PROCESS_GROUP
         }
 
         let mut child = cmd.spawn().map_err(|e| {

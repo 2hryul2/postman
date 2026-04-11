@@ -7,6 +7,8 @@ import { useUIStore } from "@/stores/useUIStore";
 import { api } from "@/lib/tauri";
 import { generateId } from "@/lib/uuid";
 import { METHOD_COLORS, STATUS_COLORS, getStatusCategory } from "@/lib/constants";
+import { generateSampleCollections } from "@/lib/templates";
+import { EmptyState } from "@/components/shared/EmptyState";
 import type { HttpMethod, Collection, ApiRequest, HistoryItem } from "@/types";
 import { EnvManager } from "./EnvManager";
 import { McpSidebar } from "@/components/Mcp/McpSidebar";
@@ -30,6 +32,16 @@ export function Sidebar({ width }: SidebarProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [envManagerOpen, setEnvManagerOpen] = useState(false);
+  const [sampleGenerating, setSampleGenerating] = useState(false);
+
+  const handleGenerateSamples = useCallback(async () => {
+    setSampleGenerating(true);
+    try {
+      await generateSampleCollections();
+    } finally {
+      setSampleGenerating(false);
+    }
+  }, []);
 
   // Load collections on mount
   useEffect(() => {
@@ -207,7 +219,10 @@ export function Sidebar({ width }: SidebarProps) {
         {sidebarTab === "collections" && <div className={styles.sectionLabel}>COLLECTIONS</div>}
         {sidebarTab === "history" && (
           historyItems.length === 0 ? (
-            <div className={styles.empty}>히스토리가 없습니다</div>
+            <EmptyState
+              title="아직 요청 기록이 없습니다"
+              description="API 요청을 전송하면 여기에 자동 저장됩니다"
+            />
           ) : (
             historyItems.map((item) => {
               const methodColors = METHOD_COLORS[(item.method ?? "GET") as HttpMethod] ?? METHOD_COLORS.GET;
@@ -244,7 +259,18 @@ export function Sidebar({ width }: SidebarProps) {
           )
         )}
         {sidebarTab === "collections" && filtered.length === 0 ? (
-          <div className={styles.empty}>컬렉션이 없습니다</div>
+          <EmptyState
+            title="시작하기"
+            description="컬렉션은 API 요청을 폴더처럼 정리하는 공간입니다"
+            actions={[
+              {
+                label: sampleGenerating ? "생성 중..." : "샘플 컬렉션 자동 생성",
+                onClick: handleGenerateSamples,
+              },
+              { label: "Postman 가져오기", onClick: handleImport, variant: "secondary" },
+              { label: "빈 컬렉션 만들기", onClick: createCollection, variant: "secondary" },
+            ]}
+          />
         ) : sidebarTab === "collections" && (
           filtered.map((col) => (
             <div key={col.id} className={styles.folder}>

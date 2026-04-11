@@ -10,11 +10,13 @@ interface UIState {
   sidebarTab: SidebarTab;
   activeRequestTab: RequestTab;
   activeResponseTab: ResponseTab;
+  welcomeOpen: boolean;
   setSidebarWidth: (width: number) => void;
   setSidebarVisible: (visible: boolean) => void;
   setSidebarTab: (tab: SidebarTab) => void;
   setActiveRequestTab: (tab: RequestTab) => void;
   setActiveResponseTab: (tab: ResponseTab) => void;
+  setWelcomeOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -23,9 +25,11 @@ export const useUIStore = create<UIState>((set) => ({
   sidebarTab: "collections",
   activeRequestTab: "params",
   activeResponseTab: "body",
+  welcomeOpen: !localStorage.getItem("hiveapi_welcomed"),
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
   setSidebarTab: (tab) => set({ sidebarTab: tab }),
   setActiveRequestTab: (tab) => set({ activeRequestTab: tab }),
   setActiveResponseTab: (tab) => set({ activeResponseTab: tab }),
+  setWelcomeOpen: (open) => set({ welcomeOpen: open }),
 }));

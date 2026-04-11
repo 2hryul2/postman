@@ -50,3 +50,39 @@
 .editor:focus {
   border-color: var(--info-text);
 }
+
+.editor:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bodyHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 0 2px;
+}
+
+.noBodyBanner {
+  padding: 6px 10px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.templateBtn {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.templateBtn:hover {
+  background: var(--info-text);
+  color: var(--bg-primary);
+}

@@ -52,3 +52,20 @@
   font-size: 11px;
   color: var(--text-tertiary);
 }
+
+.authDescription {
+  padding: 6px 10px;
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.preview {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  padding: 4px 0;
+}

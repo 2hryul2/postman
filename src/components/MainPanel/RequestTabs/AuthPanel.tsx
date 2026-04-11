@@ -1,5 +1,6 @@
 import { useRequestStore } from "@/stores/useRequestStore";
 import { AUTH_TYPES } from "@/lib/constants";
+import { AUTH_HELP } from "@/lib/helpText";
 import type { AuthType } from "@/types";
 import styles from "./AuthPanel.module.css";
 
@@ -10,6 +11,16 @@ export function AuthPanel() {
     setAuthConfig({ ...authConfig, [key]: value });
   };
 
+  const handleTypeChange = (newType: AuthType) => {
+    setAuthType(newType);
+    // Auto-fill default values for apikey
+    if (newType === "apikey" && !authConfig.keyName) {
+      setAuthConfig({ keyName: "X-API-Key", keyValue: "", addTo: "header" });
+    }
+  };
+
+  const authHelp = AUTH_HELP[authType];
+
   return (
     <div className={styles.authPanel}>
       <div className={styles.typeRow}>
@@ -17,7 +28,7 @@ export function AuthPanel() {
         <select
           className={styles.select}
           value={authType}
-          onChange={(e) => setAuthType(e.target.value as AuthType)}
+          onChange={(e) => handleTypeChange(e.target.value as AuthType)}
         >
           {AUTH_TYPES.map((at) => (
             <option key={at.value} value={at.value}>
@@ -26,6 +37,10 @@ export function AuthPanel() {
           ))}
         </select>
       </div>
+
+      {authType !== "none" && (
+        <div className={styles.authDescription}>{authHelp.description}</div>
+      )}
 
       {authType === "bearer" && (
         <div className={styles.fieldGroup}>
@@ -37,8 +52,13 @@ export function AuthPanel() {
             onChange={(e) => updateConfig("token", e.target.value)}
             placeholder="Bearer 토큰 또는 {{변수}}"
           />
-          <span className={styles.hint}>
-            Authorization 헤더에 "Bearer ..." 형태로 추가됩니다
+          {authHelp.example && (
+            <span className={styles.hint}>
+              예: {authHelp.example}
+            </span>
+          )}
+          <span className={styles.preview}>
+            &rarr; Authorization: Bearer {authConfig.token ? "{입력된 토큰}" : "..."}
           </span>
         </div>
       )}
@@ -79,6 +99,7 @@ export function AuthPanel() {
               onChange={(e) => updateConfig("keyName", e.target.value)}
               placeholder="X-API-Key"
             />
+            <span className={styles.hint}>보통 X-API-Key 또는 api_key입니다</span>
           </div>
           <div className={styles.fieldGroup}>
             <label className={styles.label}>값</label>
@@ -87,7 +108,7 @@ export function AuthPanel() {
               type="text"
               value={authConfig.keyValue ?? ""}
               onChange={(e) => updateConfig("keyValue", e.target.value)}
-              placeholder="API Key 값"
+              placeholder="API 제공자가 발급한 키를 입력하세요"
             />
           </div>
           <div className={styles.fieldGroup}>

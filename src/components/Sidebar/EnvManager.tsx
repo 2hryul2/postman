@@ -99,6 +99,10 @@ export function EnvManager({ onClose }: EnvManagerProps) {
           <button className={styles.closeBtn} onClick={handleClose}>&times;</button>
         </div>
 
+        <div className={styles.envDescription}>
+          변수를 정의하면 URL, 헤더, Body에서 {"{{변수명}}"} 형식으로 사용할 수 있습니다
+        </div>
+
         <div className={styles.body}>
           {/* Environment list */}
           <div className={styles.envList}>

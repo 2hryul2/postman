@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { useRequestStore } from "@/stores/useRequestStore";
 import { useResponseStore } from "@/stores/useResponseStore";
 import { useCollectionStore } from "@/stores/useCollectionStore";
 import { useSendRequest } from "@/hooks/useSendRequest";
 import { api } from "@/lib/tauri";
 import { METHOD_COLORS, HTTP_METHODS } from "@/lib/constants";
+import { METHOD_HELP } from "@/lib/helpText";
+import { InfoTip } from "@/components/shared/InfoTip";
 import type { HttpMethod, ApiRequest } from "@/types";
 import styles from "./RequestBar.module.css";
 
@@ -13,6 +16,22 @@ export function RequestBar() {
   const { activeRequestId, activeCollectionId, setRequests } = useCollectionStore();
   const sendRequest = useSendRequest();
   const colors = METHOD_COLORS[method];
+
+  // Ctrl+Enter to send
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "Enter") {
+        e.preventDefault();
+        sendRequest();
+      }
+      if (e.ctrlKey && e.key === "s") {
+        e.preventDefault();
+        if (activeRequestId && activeCollectionId) handleSave();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,24 +77,26 @@ export function RequestBar() {
           </option>
         ))}
       </select>
+      <InfoTip text={METHOD_HELP[method]} position="bottom" />
       <input
         className={styles.urlInput}
         type="text"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder='URL 또는 {{변수}} 입력'
+        placeholder="https://api.example.com/users"
       />
       <button
         className={styles.saveBtn}
         type="button"
         onClick={handleSave}
         disabled={!activeRequestId}
-        title={activeRequestId ? "요청 저장" : "컬렉션의 요청을 선택하세요"}
+        title={activeRequestId ? "요청 저장 (Ctrl+S)" : "컬렉션의 요청을 선택하세요"}
       >
         저장
       </button>
       <button className={styles.sendBtn} type="submit" disabled={isLoading}>
-        {isLoading ? "전송 중..." : "전송"}
+        <span>{isLoading ? "전송 중..." : "전송"}</span>
+        {!isLoading && <span className={styles.shortcutHint}>Ctrl+Enter</span>}
       </button>
     </form>
   );

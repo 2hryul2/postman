@@ -4,8 +4,10 @@ import { Sidebar } from "@/components/Sidebar/Sidebar";
 import { MainPanel } from "@/components/MainPanel/MainPanel";
 import { McpPanel } from "@/components/Mcp/McpPanel";
 import { ResizeHandle } from "@/components/shared/ResizeHandle";
+import { WelcomeModal } from "@/components/shared/WelcomeModal";
 import { useUIStore } from "@/stores/useUIStore";
 import { useMcpStore } from "@/stores/useMcpStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,8 +19,9 @@ const queryClient = new QueryClient({
 });
 
 function AppLayout() {
-  const { sidebarWidth, setSidebarWidth, sidebarTab } = useUIStore();
+  const { sidebarWidth, setSidebarWidth, sidebarTab, welcomeOpen } = useUIStore();
   const { activeItem } = useMcpStore();
+  useKeyboardShortcuts();
 
   const showMcpPanel = sidebarTab === "mcp" && activeItem !== null;
 
@@ -34,6 +37,7 @@ function AppLayout() {
         />
         {showMcpPanel ? <McpPanel /> : <MainPanel />}
       </div>
+      {welcomeOpen && <WelcomeModal />}
     </div>
   );
 }

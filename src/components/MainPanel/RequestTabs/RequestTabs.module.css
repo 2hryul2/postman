@@ -13,6 +13,12 @@
   gap: 0;
 }
 
+.tabWrapper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .tab {
   padding: 0 14px;
   height: 100%;

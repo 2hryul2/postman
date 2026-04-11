@@ -116,3 +116,205 @@
   font-family: var(--font-mono);
   word-break: break-all;
 }
+
+/* Status description */
+.statusDesc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Error container */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 120px;
+  padding: 20px;
+  text-align: center;
+}
+
+.errorMessage {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--danger-text);
+}
+
+.errorSuggestion {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.errorToggle {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.errorRaw {
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-width: 480px;
+  text-align: left;
+}
+
+/* Welcome card */
+.welcomeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  min-height: 120px;
+  padding: 32px 20px;
+}
+
+.welcomeTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.welcomeSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.welcomeSubtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.welcomeHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.welcomeActions {
+  display: flex;
+  gap: 8px;
+}
+
+.welcomePrimary {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  background: var(--info-text);
+  color: var(--bg-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.welcomePrimary:hover {
+  opacity: 0.9;
+}
+
+.welcomePrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.welcomeBtn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.welcomeBtn:hover {
+  background: var(--info-text);
+  color: var(--bg-primary);
+}
+
+.welcomeGuide {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+/* Code tabs separator */
+.codeTab {
+  border-left: 0.5px solid var(--border-weak);
+  margin-left: 2px;
+}
+
+/* Code container */
+.codeContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.codeToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 0.5px solid var(--border-weak);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.codeLang {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.copyBtn {
+  padding: 3px 10px;
+  border: 0.5px solid var(--border-sub);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.copyBtn:hover {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-text);
+}
+
+.codeBlock {
+  flex: 1;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow: auto;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  margin: 0;
+  tab-size: 4;
+}
